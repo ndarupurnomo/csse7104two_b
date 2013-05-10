@@ -1,49 +1,15 @@
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.Scanner;
+
 import SmartHome.*;
 
-public class SmartHomeUI {
+public class SmartHomeUI extends Ice.Application {
 
     private Scanner input = new Scanner(System.in);
     private static String userName = "";
     private Ice.Communicator communicator;
     private HomeManagerPrx hm;
-
-    public SmartHomeUI(String port) throws Exception {
-        String menuInput;
-
-        if (checkUserCount() <= 2) {
-            //ask user name
-            while (userName.length() == 0) {
-                System.out.print("\nPlease enter your user name: ");
-                userName = input.nextLine().trim();
-            }
-        }
-
-        communicator = Ice.Util.initialize();
-        hm = HomeManagerPrxHelper.checkedCast(communicator.stringToProxy("homemanager:tcp -p " + port + " -h localhost"));
-
-        while (true) {
-            //main menu
-            System.out.println("\nWelcome to the Smart Home Monitoring System");
-            System.out.println("Please select an option:");
-            System.out.println("1. View temperature");
-            System.out.println("E. Exit");
-            menuInput = input.nextLine();
-
-            switch (menuInput.trim()) {
-            case "1":
-                viewTemperature(port);
-                break;
-            case "E":
-                exitMenu();
-            default:
-                invalidCommand();
-                break;
-            }
-        }
-    }
 
     private void viewTemperature(String port) {
         System.out.println("Current temperature: " + hm.currentTemperature());
@@ -100,18 +66,61 @@ public class SmartHomeUI {
         file.close();
     }
 
-    //command: java SmartHomeUI
-    public static void main(String[] args) {
+    private static void menu() {
+        System.out.println("\nWelcome to the Smart Home Monitoring System");
+        System.out.println("Please select an option:");
+        System.out.println("1. View temperature");
+        System.out.println("x. Exit");
+    }
+
+    @Override
+    public int run(String[] args) {
         if (args.length != 1) {
             System.err.println("java SmartHomeUI [port]");
-            System.exit(1);
+            return 1;
         }
-        try {
-            new SmartHomeUI(args[0]);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            System.exit(1);
-        }
+        Ice.ObjectPrx obj = communicator().stringToProxy("homemanager:tcp -h 127.0.0.1 -p " + args[0]);
+        HomeManagerPrx hm = HomeManagerPrxHelper.uncheckedCast(obj);
+        menu();
+
+        java.io.BufferedReader in = new java.io.BufferedReader(new java.io.InputStreamReader(System.in));
+
+        String line = null;
+        do {
+            try {
+                System.out.print("==> ");
+                System.out.flush();
+                line = in.readLine();
+                if (line == null) {
+                    break;
+                } else if (line.equals("1")) {
+                    System.out.println("Current temperature is " + hm.currentTemperature());
+                } else if (line.equals("s")) {
+                    hm.shutdown();
+                } else if (line.equals("x")) {
+                    // Nothing to do
+                } else if (line.equals("?")) {
+                    menu();
+                } else {
+                    System.out.println("unknown command `" + line + "'");
+                    menu();
+                }
+            } catch (java.io.IOException ex) {
+                ex.printStackTrace();
+            } catch (Ice.LocalException ex) {
+                ex.printStackTrace();
+            }
+        } while (!line.equals("x"));
+
+        return 0;
+
+    }
+
+    //command: java SmartHomeUI
+    public static void main(String[] args) {
+        SmartHomeUI app = new SmartHomeUI();
+        int status = app.main("SmartHomeUI", args);
+        System.exit(status);
     }
 
 }
