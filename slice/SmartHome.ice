@@ -4,5 +4,12 @@ module SmartHome
     {
         int currentTemperature();
         void shutdown();
+        void setTemperature(int temperature);
     };
+    
+    interface Sensor
+    {
+        void shutdown();
+    };
+    
 };
